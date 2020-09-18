@@ -1,12 +1,69 @@
-[master]
-; Put the IP address for your main Kubernetes server
-xxx.xxx.xxx.xxx
+[master_aws]
+xxx.xxx.xxx
 
-[nodes]
-; Put the IP addresses for the rest of the nodes
-xxx.xxx.xxx.xxx
-xxx.xxx.xxx.xxx
-xxx.xxx.xxx.xxx
+[nodes_aws]
+xxx.xxx.xxx
+xxx.xxx.xxx
+xxx.xxx.xxx
+
+[aws:children]
+master_aws
+nodes_aws
+
+[aws:vars]
+ansible_user=ubuntu
+ansible_ssh_private_key_file=/home/ubuntu/privatekey.pem
+type_message=aws
+
+[master_do]
+xxx.xxx.xxx
+
+[nodes_do]
+xxx.xxx.xxx
+xxx.xxx.xxx
+xxx.xxx.xxx
+
+[do:children]
+master_do
+nodes_do
+
+[do:vars]
+ansible_user=root
+type_message=do
+
+[master_local]
+xxx.xxx.xxx
+
+[nodes_local]
+xxx.xxx.xxx
+xxx.xxx.xxx
+xxx.xxx.xxx
+
+[local:children]
+master_local
+nodes_local
+
+[local:vars]
+ansible_user=ubuntu
+type_message=local
+
+; -----------------------------------------------
+
+[master:children]
+master_aws
+master_do
+master_local
+
+[master:vars]
+kind_message=master
+
+[nodes:children]
+nodes_aws
+nodes_do
+nodes_local
+
+[nodes:vars]
+kind_message=nodes
 
 [k3s_cluster:children]
 ; Defines a group called k3s_cluster that includes groups "master" and "nodes"

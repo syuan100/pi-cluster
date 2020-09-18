@@ -1,44 +1,12 @@
-# Redundant Eth 2.0 Staking on a Raspberry Pi Cluster
+# Raspberry Pi Kubernetes + Replicated Storage using Ansible
 
-The purpose of this project is to provide a (relatively) easy way to deploy a fault-tolerant Eth 2.0 staking cluster on Raspberry Pi 4's using Ansible. Familiarity with Kubernetes, or at least a willingness to learn, is recommended so that you can use the `kubectl` commands to troubleshoot your deployments if anything goes sideways.
-
-#### What does this project contain?
-- Full hardware setup instructions for a Raspberry Pi cluster
-- Single-line command for a self-healing deployment of geth, beacon, and validator nodes
-- A single variables file `group_vars/all.yml` that controls your deployment
-- Additional playbooks to update your deployment
-
-#### Work in progress
-- Adding additional clients
-  - [x] Lighthouse
-  - [x] Prysm
-  - [x] Teku
-  - [x] Nimbus
-  - [ ] Lodestar (?)
-- Logging and monitoring
-  - Currently implemeted Netdata, will try Prometheus/Grafana next to include logs
-- ~~Including a setting for POAP [`graffiti`](https://beaconcha.in/poap)~~
-- ~~Restarting only deployments that change or update~~
-
-#### Potential improvements
-- Other distributed storage options other than GlusterFS
-- Triggering backup deployments to the cloud
+This is a generalized environment for setting up a Kubernets Cluster using Ansible via k3sup. Currently supports GlusterFS with more storage solutions to come.
 
 #### Open source to the core
 
 Please feel free to fork, make PRs, and open issues! This is all done completely on the side in my free time as a way to benefit the Ethereum community, so I may not have the velocity to make changes quickly.
 
 ---
-
-#### So who exactly is this for...
-- People who want to create a cost effective, yet redudant, staking setup
-- People who want to learn a bit about Ethereum, Ansible, Kubernetes, and GlusterFS
-- People who are just curious to see how Kubernetes can be used to self-heal Ethereum deployments
-
-#### ⚠️ CAUTION ⚠️
-**Your Ether is your responsibility.** Reading the code and understanding how this deployment works BEFORE committing any Ether (test or otherwise) will increase your likelyhood of success in troubleshooting. While this project was created for the Medalla testnet, it can easily be adapted for mainnet usage in the future, if you choose to take that risk. It is recommended that for a mainnet deployment you increase storage capacity and invest in redudant backup power supplies, as well as a backup source of internet connection, among other redundancies.
-
-**THIS GUIDE IS PURELY INFORMATIONAL. PLEASE DO YOUR RESEARCH IF YOU WISH TO IMPLEMENT THIS WITH REAL ETHER WHEN PHASE 0 LAUNCHES.**
 
 #### A small shout out to the pre-made ansible playbooks that I used:
 
@@ -176,16 +144,6 @@ You may want to setup IP reservations for each Pi so that you don't need to chec
   ```
 
 - Edit the file in `group_vars/all.yml` to suit your needs. Head to the `group_vars` directory to see the README of all the details.
-
-## Generate your validator keys
-
-For ease, we will be leveraging the [Eth2 Launchpad](https://medalla.launchpad.ethereum.org/) to generate our validator keys and submit our deposits.
-
-Once you've successfully followed all the instructions from the launchpad, you should end up with a directory called `validator_keys` that contains all the information and files you'll need to load into your validator.
-
-Copy the contents of `validator_keys` into **ONLY ONE** of the client folders under `eth2_launchpad_files`. For example, if you are using the Lighthouse validator, copy the contents into `eth2_launchpad_files/lighthouse/validator_keys`.
-
-**IT IS IMPERATIVE THAT YOU ONLY HAVE ONE COPY OF THE VALIDATOR KEYS IN ONE CLIENT FOLDER. HAVING THE SAME VALIDATOR KEYS IN MULTIPLE CLIENTS WILL CAUSE YOUR DEPOSIT TO BE SLASHED AND YOU WILL LOSE ETHER.**
 
 ## Run the setup playbook
 

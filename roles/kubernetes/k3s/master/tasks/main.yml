@@ -1,7 +1,7 @@
 ---
 
 - name: Install master instances
-  shell: k3sup install --cluster --local
+  shell: k3sup install --cluster --user {{ ansible_user }} --ip {{ ansible_default_ipv4.address }}
 
 # - name: Enable and check K3s service
 #   systemd:

@@ -112,34 +112,34 @@
 #       pause:
 #         minutes: 5
 
-- name: Finish setting up all other nodes
-  hosts: 127.0.0.1
-  connection: local
-  ignore_errors: true
-  tasks:
-    - name: Initialize worker nodes (Local)
-      with_items: "{{ groups['nodes_local'] }}"
-      shell: k3sup join \
-        --ip {{ hostvars[item]['inventory_hostname'] }} \
-        --user {{ hostvars[item]['ansible_user'] }} \
-        --server-user {{ hostvars[groups['master_local'][0]]['ansible_user'] }} \
-        --server-ip {{ public_facing_ip }} {% if hostvars[item]['ansible_ssh_private_key_file'] is defined %}--ssh-key {{ hostvars[item]['ansible_ssh_private_key_file'] }}{% endif %}
-    - name: Initialize worker nodes (AWS)
-      with_items: "{{ groups['nodes_aws'] }}"
-      shell: k3sup join \
-        --ip {{ hostvars[item]['inventory_hostname'] }} \
-        --user {{ hostvars[item]['ansible_user'] }} \
-        --k3s-extra-args '--node-external-ip={{ hostvars[item]['inventory_hostname'] }}'
-        --server-user {{ hostvars[groups['master_aws'][0]]['ansible_user'] }} \
-        --server-ip {{ hostvars[groups['master_aws'][0]]['inventory_hostname'] }} {% if hostvars[item]['ansible_ssh_private_key_file'] is defined %}--ssh-key {{ hostvars[item]['ansible_ssh_private_key_file'] }}{% endif %}
-    - name: Initialize worker nodes (DO)
-      with_items: "{{ groups['nodes_do'] }}"
-      shell: k3sup join \
-        --ip {{ hostvars[item]['inventory_hostname'] }} \
-        --user {{ hostvars[item]['ansible_user'] }} \
-        --k3s-extra-args '--node-external-ip={{ hostvars[item]['inventory_hostname'] }}'
-        --server-user {{ hostvars[groups['master_do'][0]]['ansible_user'] }} \
-        --server-ip {{ hostvars[groups['master_do'][0]]['inventory_hostname'] }} {% if hostvars[item]['ansible_ssh_private_key_file'] is defined %}--ssh-key {{ hostvars[item]['ansible_ssh_private_key_file'] }}{% endif %}
+# - name: Finish setting up all other nodes
+#   hosts: 127.0.0.1
+#   connection: local
+#   ignore_errors: true
+#   tasks:
+#     - name: Initialize worker nodes (Local)
+#       with_items: "{{ groups['nodes_local'] }}"
+#       shell: k3sup join \
+#         --ip {{ hostvars[item]['inventory_hostname'] }} \
+#         --user {{ hostvars[item]['ansible_user'] }} \
+#         --server-user {{ hostvars[groups['master_local'][0]]['ansible_user'] }} \
+#         --server-ip {{ public_facing_ip }} {% if hostvars[item]['ansible_ssh_private_key_file'] is defined %}--ssh-key {{ hostvars[item]['ansible_ssh_private_key_file'] }}{% endif %}
+#     - name: Initialize worker nodes (AWS)
+#       with_items: "{{ groups['nodes_aws'] }}"
+#       shell: k3sup join \
+#         --ip {{ hostvars[item]['inventory_hostname'] }} \
+#         --user {{ hostvars[item]['ansible_user'] }} \
+#         --k3s-extra-args '--node-external-ip={{ hostvars[item]['inventory_hostname'] }}'
+#         --server-user {{ hostvars[groups['master_aws'][0]]['ansible_user'] }} \
+#         --server-ip {{ hostvars[groups['master_aws'][0]]['inventory_hostname'] }} {% if hostvars[item]['ansible_ssh_private_key_file'] is defined %}--ssh-key {{ hostvars[item]['ansible_ssh_private_key_file'] }}{% endif %}
+#     - name: Initialize worker nodes (DO)
+#       with_items: "{{ groups['nodes_do'] }}"
+#       shell: k3sup join \
+#         --ip {{ hostvars[item]['inventory_hostname'] }} \
+#         --user {{ hostvars[item]['ansible_user'] }} \
+#         --k3s-extra-args '--node-external-ip={{ hostvars[item]['inventory_hostname'] }}'
+#         --server-user {{ hostvars[groups['master_do'][0]]['ansible_user'] }} \
+#         --server-ip {{ hostvars[groups['master_do'][0]]['inventory_hostname'] }} {% if hostvars[item]['ansible_ssh_private_key_file'] is defined %}--ssh-key {{ hostvars[item]['ansible_ssh_private_key_file'] }}{% endif %}
 
 # - name: Prep storage for glusterfs...
 #   hosts: gluster_servers

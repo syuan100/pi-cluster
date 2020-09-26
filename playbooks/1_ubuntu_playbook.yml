@@ -1,7 +1,61 @@
 - name: Host setup
-  hosts: k3s_cluster
+  hosts: local
   become: yes
   gather_facts: yes
   any_errors_fatal: true
   roles:
     - role: ubuntu
+    - role: kubernetes/prereq
+    - role: kubernetes/raspbian
+    - role: kubernetes/ubuntu
+  tasks:
+    - name: Set ssh firewall rules
+      ufw:
+        state: enabled
+        rule: allow
+        port: ssh
+        proto: tcp
+    - name: Set kube api firewall rules
+      ufw:
+        state: enabled
+        rule: allow
+        port: '6443'
+        proto: tcp
+    - name: Set k3s metrics firewall rules
+      ufw:
+        state: enabled
+        rule: allow
+        port: '10250'
+        proto: tcp
+    - name: Set Flannel VXLAN firewall rules
+      ufw:
+        state: enabled
+        rule: allow
+        port: '8472'
+        from_ip: "{{ item }}"
+      loop: "{{ groups['all'] }}"
+
+- name: Prep SSH key from local master
+  hosts: master_local
+  any_errors_fatal: true
+  gather_facts: false
+  tasks:
+    - name: Generate key
+      openssh_keypair:
+        path: /home/ubuntu/.ssh/id_rsa
+    - name: Fetch the keyfile from one server to another
+      fetch: 
+        src: "/home/ubuntu/.ssh/id_rsa.pub"
+        dest: "buffer/id_rsa.pub"
+        flat: yes
+
+- name: Transfer public key to master hosts
+  hosts: master
+  any_errors_fatal: true
+  gather_facts: false
+  tasks:
+    - name: Add authorized key
+      authorized_key:
+        user: "{{ ansible_user }}"
+        state: present
+        key: "{{ lookup('file','buffer/id_rsa.pub')}}"

@@ -12,7 +12,7 @@
   vars:
     gluster_cluster_hosts: "{{ groups['gluster_servers'] }}"
     gluster_infra_reset_mnt_paths: /mnt/brick1
-    gluster_infra_reset_volume_groups: vg_eth
+    gluster_infra_reset_volume_groups: vg
   roles:
     - role: './gluster_infra/roles/backend_reset'
   tasks:

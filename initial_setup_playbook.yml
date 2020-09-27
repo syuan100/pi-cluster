@@ -141,6 +141,63 @@
 #         --server-user {{ hostvars[groups['master_do'][0]]['ansible_user'] }} \
 #         --server-ip {{ hostvars[groups['master_do'][0]]['inventory_hostname'] }} {% if hostvars[item]['ansible_ssh_private_key_file'] is defined %}--ssh-key {{ hostvars[item]['ansible_ssh_private_key_file'] }}{% endif %}
 
+- name: Gluster Port Setup - Local
+  hosts: local
+  become: yes
+  gather_facts: yes
+  ignore_errors: true
+  tasks:
+    - name: Set Gluster Daemon port
+      ufw:
+        state: enabled
+        rule: allow
+        port: '24007'
+        proto: tcp
+        from_ip: "{{ item }}"
+      loop: "{{ groups['all'] }}"
+    - name: Set Gluster Management port
+      ufw:
+        state: enabled
+        rule: allow
+        port: '24008'
+        proto: tcp
+        from_ip: "{{ item }}"
+      loop: "{{ groups['all'] }}"
+    - name: Set Gluster Daemon rules
+      ufw:
+        state: disabled
+        rule: allow
+        port: '24009'
+        proto: tcp
+        from_ip: "{{ item }}"
+      loop: "{{ groups['all'] }}"
+    - name: Set Gluster portmapper rules (TCP)
+      ufw:
+        state: enabled
+        rule: allow
+        port: '111'
+        proto: tcp
+        from_ip: "{{ item }}"
+      loop: "{{ groups['all'] }}"
+    - name: Set Gluster portmapper rules (UDP)
+      ufw:
+        state: enabled
+        rule: allow
+        port: '111'
+        proto: udp
+        from_ip: "{{ item }}"
+      loop: "{{ groups['all'] }}"
+    - name: Setup Gluster Brick Ports
+      ufw:
+        state: enabled
+        rule: allow
+        port: '{{ 49152 + index }}'
+        proto: tcp
+        from_ip: "{{ item }}"
+      loop: "{{ groups['all'] }}"
+      loop_control:
+        index_var: index
+
 # - name: Prep storage for glusterfs...
 #   hosts: gluster_servers
 #   become: yes
@@ -155,7 +212,7 @@
 #             dev: '{{ storage_path }}'
 #       rescue:
 #         - name: Remove volume from system manually
-#           shell: lvremove -y vg_eth && vgremove vg_eth
+#           shell: lvremove -y vg && vgremove vg
 #         - name: Format storage
 #           filesystem:
 #             fstype: xfs
@@ -190,19 +247,19 @@
 
 #     # Variables for creating volume group
 #     gluster_infra_volume_groups:
-#       - { vgname: 'vg_eth', pvname: '{{ storage_path }}' }
+#       - { vgname: 'vg', pvname: '{{ storage_path }}' }
 
 #     # Create thinpools
 #     gluster_infra_thinpools:
-#       - {vgname: 'vg_eth', thinpoolname: 'eth2_thinpool', thinpoolsize: '{{ storage_size }}G', poolmetadatasize: '100M'}
+#       - {vgname: 'vg', thinpoolname: 'pi_thinpool', thinpoolsize: '{{ storage_size }}G', poolmetadatasize: '100M'}
 
 #     # Create a thin volume
 #     gluster_infra_lv_logicalvols:
-#       - { vgname: 'vg_eth', thinpool: 'eth2_thinpool', lvname: 'vg_eth_thin_eth2', lvsize: '{{ storage_size * ( groups["all"] | length ) }}G'}
+#       - { vgname: 'vg', thinpool: 'pi_thinpool', lvname: 'vg_pi_thinpool', lvsize: '{{ storage_size * ( groups["all"] | length ) }}G'}
 
 #     # Mount the devices 
 #     gluster_infra_mount_devices:
-#       - { path: '/mnt/brick1', vgname: 'vg_eth', lvname: 'vg_eth_thin_eth2' }
+#       - { path: '/mnt/brick1', vgname: 'vg', lvname: 'vg_pi_thinpool' }
 
 #   roles:
 #     - '../gluster_infra/roles/backend_setup'

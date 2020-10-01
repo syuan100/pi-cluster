@@ -1,23 +1,14 @@
-- name: Prep storage for glusterfs...
-  hosts: all
+- name: Gluster Port Setup - Local
+  hosts: '192.168.86.235'
   become: yes
-  any_errors_fatal: true
+  gather_facts: yes
+  ignore_errors: true
   tasks:
-    - name: Debug dev name
-      debug:
-        msg: "{{ storage_path }}"
-    # - name: Try formatting
-    #   block:
-    #     - name: Format storage
-    #       filesystem:
-    #         fstype: xfs
-    #         force: yes
-    #         dev: '{{ storage_path }}'
-    #   rescue:
-    #     - name: Remove volume from system manually
-    #       shell: lvremove -y vg && vgremove vg
-    #     - name: Format storage
-    #       filesystem:
-    #         fstype: xfs
-    #         force: yes
-    #         dev: '{{ storage_path }}'
+    - name: Setup Gluster Brick Ports
+      ufw:
+        state: enabled
+        rule: allow
+        port: '49152:{{ 49152 + (groups["all"] | length) }}'
+        proto: tcp
+        from_ip: "{{ item }}"
+      loop: "{{ groups['all'] }}"

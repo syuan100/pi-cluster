@@ -69,17 +69,6 @@
 #     - name: Install k3sup
 #       shell: curl -sLS https://get.k3sup.dev | sh
 
-# - name: Copy kubelet config files
-#   hosts: k3s_cluster
-#   any_errors_fatal: true
-#   become: yes
-#   tasks:
-#     - name: Copy kubelet service config file
-#       copy:
-#         src: ./manifests/kubelet-config.yaml
-#         dest: /home/ubuntu/kubelet-config.yaml
-#       register: result
-
 # - name: Initial k3sup cluster setup
 #   hosts: 127.0.0.1
 #   connection: local
@@ -102,6 +91,59 @@
 #         --server-user {{ hostvars[groups['master_local'][0]]['ansible_user'] }} \
 #         --server-ip {{ public_facing_ip }} {% if hostvars[item]['ansible_ssh_private_key_file'] is defined %}--ssh-key {{ hostvars[item]['ansible_ssh_private_key_file'] }}{% endif %}
 #       when: hostvars[item]['inventory_hostname'] != hostvars[groups['master_local'][0]]['inventory_hostname']
+
+- name: Rook.io setup
+  hosts: master_local
+  become: yes
+  gather_facts: yes
+  any_errors_fatal: yes
+  tasks:
+    - name: Prereq LVM2 install
+      apt:
+        state: present
+        name: lvm2
+    - name: Copy Rook CRD manifest to master
+      copy:
+        src: ./manifests/rook/common.yaml
+        dest: "/home/{{ ansible_user }}/manifests/rook/common.yaml"
+    - name: Copy operator manifest to master
+      copy:
+        src: ./manifests/rook/operator.yaml
+        dest: "/home/{{ ansible_user }}/manifests/rook/operator.yaml"
+    - name: Copy cluster manifest to master
+      template:
+        src: ./manifests/rook/cluster.yaml.j2
+        dest: "/home/{{ ansible_user }}/manifests/rook/cluster.yaml"
+    # - name: Set Rook Ceph CRDs
+    #   shell: kubectl apply -f https://raw.githubusercontent.com/rook/rook/release-1.4/cluster/examples/kubernetes/ceph/common.yaml
+    # - name: Create Rook Ceph Operator
+    #   shell: kubectl apply -f https://raw.githubusercontent.com/rook/rook/release-1.4/cluster/examples/kubernetes/ceph/operator.yaml
+    # - name: Create Rook Ceph Cluster
+    #   shell: kubectl apply -f https://raw.githubusercontent.com/rook/rook/release-1.4/cluster/examples/kubernetes/ceph/cluster.yaml
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # - name: Pause
 #   hosts: 127.0.0.1
@@ -141,62 +183,60 @@
 #         --server-user {{ hostvars[groups['master_do'][0]]['ansible_user'] }} \
 #         --server-ip {{ hostvars[groups['master_do'][0]]['inventory_hostname'] }} {% if hostvars[item]['ansible_ssh_private_key_file'] is defined %}--ssh-key {{ hostvars[item]['ansible_ssh_private_key_file'] }}{% endif %}
 
-- name: Gluster Port Setup - Local
-  hosts: local
-  become: yes
-  gather_facts: yes
-  ignore_errors: true
-  tasks:
-    - name: Set Gluster Daemon port
-      ufw:
-        state: enabled
-        rule: allow
-        port: '24007'
-        proto: tcp
-        from_ip: "{{ item }}"
-      loop: "{{ groups['all'] }}"
-    - name: Set Gluster Management port
-      ufw:
-        state: enabled
-        rule: allow
-        port: '24008'
-        proto: tcp
-        from_ip: "{{ item }}"
-      loop: "{{ groups['all'] }}"
-    - name: Set Gluster Daemon rules
-      ufw:
-        state: disabled
-        rule: allow
-        port: '24009'
-        proto: tcp
-        from_ip: "{{ item }}"
-      loop: "{{ groups['all'] }}"
-    - name: Set Gluster portmapper rules (TCP)
-      ufw:
-        state: enabled
-        rule: allow
-        port: '111'
-        proto: tcp
-        from_ip: "{{ item }}"
-      loop: "{{ groups['all'] }}"
-    - name: Set Gluster portmapper rules (UDP)
-      ufw:
-        state: enabled
-        rule: allow
-        port: '111'
-        proto: udp
-        from_ip: "{{ item }}"
-      loop: "{{ groups['all'] }}"
-    - name: Setup Gluster Brick Ports
-      ufw:
-        state: enabled
-        rule: allow
-        port: '{{ 49152 + index }}'
-        proto: tcp
-        from_ip: "{{ item }}"
-      loop: "{{ groups['all'] }}"
-      loop_control:
-        index_var: index
+# - name: Gluster Port Setup - Local
+#   hosts: local
+#   become: yes
+#   gather_facts: yes
+#   ignore_errors: true
+#   tasks:
+#     - name: Set Gluster Daemon port
+#       ufw:
+#         state: enabled
+#         rule: allow
+#         port: '24007'
+#         proto: tcp
+#         from_ip: "{{ item }}"
+#       loop: "{{ groups['all'] }}"
+#     - name: Set Gluster Management port
+#       ufw:
+#         state: enabled
+#         rule: allow
+#         port: '24008'
+#         proto: tcp
+#         from_ip: "{{ item }}"
+#       loop: "{{ groups['all'] }}"
+#     - name: Set Gluster Daemon rules
+#       ufw:
+#         state: disabled
+#         rule: allow
+#         port: '24009'
+#         proto: tcp
+#         from_ip: "{{ item }}"
+#       loop: "{{ groups['all'] }}"
+#     - name: Set Gluster portmapper rules (TCP)
+#       ufw:
+#         state: enabled
+#         rule: allow
+#         port: '111'
+#         proto: tcp
+#         from_ip: "{{ item }}"
+#       loop: "{{ groups['all'] }}"
+#     - name: Set Gluster portmapper rules (UDP)
+#       ufw:
+#         state: enabled
+#         rule: allow
+#         port: '111'
+#         proto: udp
+#         from_ip: "{{ item }}"
+#       loop: "{{ groups['all'] }}"
+#     - name: Setup Gluster Brick Ports
+#       ufw:
+#         state: enabled
+#         rule: allow
+#         port: '49152:{{ 49152 + (groups["all"] | length) }}'
+#         proto: tcp
+#         from_ip: "{{ item }}"
+#       loop: "{{ groups['all'] }}"
 
 # - name: Prep storage for glusterfs...
 #   hosts: gluster_servers
@@ -222,7 +262,7 @@
 # - name: Setting up glusterfs bricks...
 #   any_errors_fatal: true
 #   become: yes
-#   hosts: gluster_servers
+#   hosts: all
 #   gather_facts: false
 #   vars:
 #     # Set a disk type, Options: JBOD, RAID6, RAID10
@@ -255,7 +295,7 @@
 
 #     # Create a thin volume
 #     gluster_infra_lv_logicalvols:
-#       - { vgname: 'vg', thinpool: 'pi_thinpool', lvname: 'vg_pi_thinpool', lvsize: '{{ storage_size * ( groups["all"] | length ) }}G'}
+#       - { vgname: 'vg', thinpool: 'pi_thinpool', lvname: 'vg_pi_thinpool', lvsize: '{{ (local_storage_size * ( groups["local"] | length )) + (aws_storage_size * ( groups["aws"] | length )) + (do_storage_size * ( groups["do"] | length )) }}G'}
 
 #     # Mount the devices 
 #     gluster_infra_mount_devices:
@@ -265,15 +305,15 @@
 #     - '../gluster_infra/roles/backend_setup'
 
 # - name: Create glusterfs cluster...
-#   any_errors_fatal: true
+#   ignore_errors: true
 #   hosts: gluster_servers
 #   become: yes
 #   gather_facts: true
 
 #   vars:
 #     # gluster volume
-#     gluster_cluster_hosts: "{{ groups['gluster_servers'] }}"
-#     gluster_cluster_volume: eth2vol
+#     gluster_cluster_hosts: "{{ groups['gluster_servers_external'] }}"
+#     gluster_cluster_volume: piclustervol
 #     gluster_cluster_transport: 'tcp'
 #     gluster_cluster_bricks: '/mnt/brick1'
 
@@ -290,8 +330,8 @@
 #         name: glusterfs-server
 #     - name: Mount gluster volume locally for all hosts
 #       mount:
-#         path: /mnt/eth2
-#         src: localhost:/eth2vol
+#         path: /mnt/picluster
+#         src: localhost:/piclustervol
 #         fstype: glusterfs
 #         opts: defaults,_netdev
 #         state: mounted

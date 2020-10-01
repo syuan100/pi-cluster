@@ -3,7 +3,7 @@
   become: yes
   tasks:
     - name: Stop the volume
-      shell: gluster --mode=script volume stop eth2vol
+      shell: gluster --mode=script volume stop piclustervol
       ignore_errors: yes
 
 - name: Reset mount paths and volume groups

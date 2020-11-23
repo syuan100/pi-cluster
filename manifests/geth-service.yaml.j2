@@ -2,6 +2,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: geth
+  labels:
+    k8s-app: geth
 spec:
   type: LoadBalancer
   selector:
@@ -10,11 +12,15 @@ spec:
   - name: geth-json-rpc-tcp
     port: {{ geth_json_rpc_port }}
     targetPort: {{ geth_json_rpc_port_target }}
-    nodePort: 30011
+    nodePort: 30013
   - name: geth-tcp
     port: {{ geth_port }}
     targetPort: {{ geth_port_target }}
-    nodePort: 30012
+    nodePort: 30011
+  - name: geth-metrics
+    port: 6060
+    targetPort: 6060
+    nodePort: 30014
 
 ---
 
@@ -31,7 +37,28 @@ spec:
     protocol: UDP
     port: {{ geth_port }}
     targetPort: {{ geth_port_target }}
-    nodePort: 30013
+    nodePort: 30012
+
+---
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: geth-metrics
+  namespace: monitoring
+  labels:
+    k8s-app: geth-metrics-monitor
+spec:
+  selector:
+    matchLabels:
+      k8s-app: geth
+  namespaceSelector:
+    matchNames:
+    - default
+  endpoints:
+  - targetPort: 6060
+    path: "/debug/metrics/prometheus"
+    interval: 15s
 
 ---
 
@@ -67,11 +94,12 @@ spec:
             allowPrivilegeEscalation: false
           ports:
             - containerPort: {{ geth_json_rpc_port }}
+            - containerPort: 6060
             - containerPort: {{ geth_port }}
             - containerPort: {{ geth_port }}
               protocol: UDP            
           command: ["geth"]
-          args: ["--goerli", "--http", "--http.addr", "0.0.0.0", "--http.vhosts=*", "--cache", "512"]
+          args: ["--http", "--http.addr", "0.0.0.0", "--http.vhosts=*", "--cache", "512", "--metrics.addr", "0.0.0.0", "--metrics"]
           volumeMounts:
             - mountPath: "/root"
               name: eth2pv

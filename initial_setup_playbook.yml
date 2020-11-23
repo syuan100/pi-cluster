@@ -1,125 +1,177 @@
-# - name: Host setup
-#   hosts: local
-#   become: yes
-#   gather_facts: yes
-#   any_errors_fatal: true
-#   roles:
-#     - role: ubuntu
-#     - role: kubernetes/prereq
-#     - role: kubernetes/raspbian
-#     - role: kubernetes/ubuntu
-#   tasks:
-#     - name: Set ssh firewall rules
-#       ufw:
-#         state: enabled
-#         rule: allow
-#         port: ssh
-#         proto: tcp
-#     - name: Set kube api firewall rules
-#       ufw:
-#         state: enabled
-#         rule: allow
-#         port: '6443'
-#         proto: tcp
-#     - name: Set k3s metrics firewall rules
-#       ufw:
-#         state: enabled
-#         rule: allow
-#         port: '10250'
-#         proto: tcp
-#     - name: Set Flannel VXLAN firewall rules
-#       ufw:
-#         state: enabled
-#         rule: allow
-#         port: '8472'
-#         from_ip: "{{ item }}"
-#       loop: "{{ groups['all'] }}"
+- name: Host setup
+  hosts: local
+  become: yes
+  gather_facts: no
+  any_errors_fatal: true
+  roles:
+    - role: ubuntu
+    - role: kubernetes/prereq
+    - role: kubernetes/raspbian
+    - role: kubernetes/ubuntu
+  tasks:
+    - name: Set ssh firewall rules
+      ufw:
+        state: enabled
+        rule: allow
+        port: ssh
+        proto: tcp
+    - name: Set kube api firewall rules
+      ufw:
+        state: enabled
+        rule: allow
+        port: '6443'
+        proto: tcp
+    - name: Set k3s metrics firewall rules
+      ufw:
+        state: enabled
+        rule: allow
+        port: '10250'
+        proto: tcp
+    - name: Set Flannel VXLAN firewall rules
+      ufw:
+        state: enabled
+        rule: allow
+        port: '8472'
+        from_ip: "{{ item }}"
+      loop: "{{ groups['all'] }}"
+    - name: Set HTTPS rules
+      ufw:
+        state: enabled
+        rule: allow
+        port: '443'
+        from_ip: "{{ item }}"
+      loop: "{{ groups['all'] }}"
 
-# - name: Prep SSH key from local master
-#   hosts: master_local
-#   any_errors_fatal: true
-#   gather_facts: false
-#   tasks:
-#     - name: Generate key
-#       openssh_keypair:
-#         path: /home/ubuntu/.ssh/id_rsa
-#     - name: Fetch the keyfile from one server to another
-#       fetch: 
-#         src: "/home/ubuntu/.ssh/id_rsa.pub"
-#         dest: "buffer/id_rsa.pub"
-#         flat: yes
-
-# - name: Transfer public key to master hosts
-#   hosts: master
-#   any_errors_fatal: true
-#   gather_facts: false
-#   tasks:
-#     - name: Add authorized key
-#       authorized_key:
-#         user: "{{ ansible_user }}"
-#         state: present
-#         key: "{{ lookup('file','buffer/id_rsa.pub')}}"
-
-# - name: Setup k3sup...
-#   hosts: 127.0.0.1
-#   connection: local
-#   any_errors_fatal: true
-#   become: yes
-#   tasks:
-#     - name: Install k3sup
-#       shell: curl -sLS https://get.k3sup.dev | sh
-
-# - name: Initial k3sup cluster setup
-#   hosts: 127.0.0.1
-#   connection: local
-#   ignore_errors: true
-#   tasks:
-#     - name: Download k3sup
-#       shell: curl -sLS https://get.k3sup.dev | sh
-#     - name: Install k3s
-#       with_items: "{{ groups['master_local'] }}"
-#       shell: k3sup install --cluster \
-#         --user {{ hostvars[item]['ansible_user'] }} \
-#         --k3s-extra-args '--node-external-ip={{ public_facing_ip }}' 
-#         --ip {{ public_facing_ip }}
-#     - name: Initialize HA servers
-#       with_items: "{{ groups['master'] }}"
-#       shell: k3sup join --server \
-#         --ip {{ hostvars[item]['inventory_hostname'] }} \
-#         --user {{ hostvars[item]['ansible_user'] }} \
-#         --k3s-extra-args '--node-external-ip={{ hostvars[item]['inventory_hostname'] }}'
-#         --server-user {{ hostvars[groups['master_local'][0]]['ansible_user'] }} \
-#         --server-ip {{ public_facing_ip }} {% if hostvars[item]['ansible_ssh_private_key_file'] is defined %}--ssh-key {{ hostvars[item]['ansible_ssh_private_key_file'] }}{% endif %}
-#       when: hostvars[item]['inventory_hostname'] != hostvars[groups['master_local'][0]]['inventory_hostname']
-
-- name: Rook.io setup
+- name: Prep SSH key from local master
   hosts: master_local
+  any_errors_fatal: true
+  gather_facts: false
+  tasks:
+    - name: Generate key
+      openssh_keypair:
+        path: /home/ubuntu/.ssh/id_rsa
+    - name: Fetch the keyfile from one server to another
+      fetch: 
+        src: "/home/ubuntu/.ssh/id_rsa.pub"
+        dest: "buffer/id_rsa.pub"
+        flat: yes
+
+- name: Transfer public key to master hosts
+  hosts: master
+  any_errors_fatal: true
+  gather_facts: false
+  tasks:
+    - name: Add authorized key
+      authorized_key:
+        user: "{{ ansible_user }}"
+        state: present
+        key: "{{ lookup('file','buffer/id_rsa.pub')}}"
+
+- name: Setup k3sup...
+  hosts: 127.0.0.1
+  connection: local
+  any_errors_fatal: true
+  become: yes
+  tasks:
+    - name: Install k3sup
+      shell: curl -sLS https://get.k3sup.dev | sh
+
+- name: Initial k3sup cluster setup
+  hosts: 127.0.0.1
+  connection: local
+  ignore_errors: true
+  tasks:
+    - name: Download k3sup
+      shell: curl -sLS https://get.k3sup.dev | sh
+    - name: Install k3s
+      with_items: "{{ groups['master_local'] }}"
+      shell: k3sup install --cluster \
+        --user {{ hostvars[item]['ansible_user'] }} \
+        --k3s-extra-args '--node-external-ip={{ public_facing_ip }}' 
+        --ip {{ public_facing_ip }}
+    - name: Initialize HA servers
+      with_items: "{{ groups['master'] }}"
+      shell: k3sup join --server \
+        --ip {{ hostvars[item]['inventory_hostname'] }} \
+        --user {{ hostvars[item]['ansible_user'] }} \
+        --k3s-extra-args '--node-external-ip={{ hostvars[item]['inventory_hostname'] }}'
+        --server-user {{ hostvars[groups['master_local'][0]]['ansible_user'] }} \
+        --server-ip {{ public_facing_ip }} {% if hostvars[item]['ansible_ssh_private_key_file'] is defined %}--ssh-key {{ hostvars[item]['ansible_ssh_private_key_file'] }}{% endif %}
+      when: hostvars[item]['inventory_hostname'] != hostvars[groups['master_local'][0]]['inventory_hostname']
+
+- name: Pause
+  hosts: 127.0.0.1
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Wait 5 min for servers to be ready...
+      pause:
+        minutes: 5
+
+- name: Finish setting up all other nodes
+  hosts: 127.0.0.1
+  connection: local
+  ignore_errors: true
+  tasks:
+    - name: Initialize worker nodes (Local)
+      with_items: "{{ groups['nodes_local'] }}"
+      shell: k3sup join \
+        --ip {{ hostvars[item]['inventory_hostname'] }} \
+        --user {{ hostvars[item]['ansible_user'] }} \
+        --server-user {{ hostvars[groups['master_local'][0]]['ansible_user'] }} \
+        --server-ip {{ public_facing_ip }} {% if hostvars[item]['ansible_ssh_private_key_file'] is defined %}--ssh-key {{ hostvars[item]['ansible_ssh_private_key_file'] }}{% endif %}
+    - name: Initialize worker nodes (AWS)
+      with_items: "{{ groups['nodes_aws'] }}"
+      shell: k3sup join \
+        --ip {{ hostvars[item]['inventory_hostname'] }} \
+        --user {{ hostvars[item]['ansible_user'] }} \
+        --k3s-extra-args '--node-external-ip={{ hostvars[item]['inventory_hostname'] }}'
+        --server-user {{ hostvars[groups['master_aws'][0]]['ansible_user'] }} \
+        --server-ip {{ hostvars[groups['master_aws'][0]]['inventory_hostname'] }} {% if hostvars[item]['ansible_ssh_private_key_file'] is defined %}--ssh-key {{ hostvars[item]['ansible_ssh_private_key_file'] }}{% endif %}
+    - name: Initialize worker nodes (DO)
+      with_items: "{{ groups['nodes_do'] }}"
+      shell: k3sup join \
+        --ip {{ hostvars[item]['inventory_hostname'] }} \
+        --user {{ hostvars[item]['ansible_user'] }} \
+        --k3s-extra-args '--node-external-ip={{ hostvars[item]['inventory_hostname'] }}'
+        --server-user {{ hostvars[groups['master_do'][0]]['ansible_user'] }} \
+        --server-ip {{ hostvars[groups['master_do'][0]]['inventory_hostname'] }} {% if hostvars[item]['ansible_ssh_private_key_file'] is defined %}--ssh-key {{ hostvars[item]['ansible_ssh_private_key_file'] }}{% endif %}
+
+- name: Rook.io Prereqs
+  hosts: all
   become: yes
   gather_facts: yes
   any_errors_fatal: yes
   tasks:
-    - name: Prereq LVM2 install
+    - name: Install LVM2
       apt:
         state: present
         name: lvm2
+
+- name: Rook.io setup
+  hosts: master_local
+  become: yes
+  gather_facts: no
+  any_errors_fatal: yes
+  tasks:
     - name: Copy Rook CRD manifest to master
-      copy:
-        src: ./manifests/rook/common.yaml
+      template:
+        src: ./manifests/rook/common.yaml.j2
         dest: "/home/{{ ansible_user }}/manifests/rook/common.yaml"
     - name: Copy operator manifest to master
       copy:
         src: ./manifests/rook/operator.yaml
-        dest: "/home/{{ ansible_user }}/manifests/rook/operator.yaml"
+        dest: "/home/{{ ansible_user }}/manifests/rook/"
     - name: Copy cluster manifest to master
       template:
         src: ./manifests/rook/cluster.yaml.j2
         dest: "/home/{{ ansible_user }}/manifests/rook/cluster.yaml"
-    # - name: Set Rook Ceph CRDs
-    #   shell: kubectl apply -f https://raw.githubusercontent.com/rook/rook/release-1.4/cluster/examples/kubernetes/ceph/common.yaml
-    # - name: Create Rook Ceph Operator
-    #   shell: kubectl apply -f https://raw.githubusercontent.com/rook/rook/release-1.4/cluster/examples/kubernetes/ceph/operator.yaml
-    # - name: Create Rook Ceph Cluster
-    #   shell: kubectl apply -f https://raw.githubusercontent.com/rook/rook/release-1.4/cluster/examples/kubernetes/ceph/cluster.yaml
+    - name: Set Rook Ceph CRDs
+      shell: kubectl apply -f /home/{{ ansible_user }}/manifests/rook/common.yaml
+    - name: Create Rook Ceph Operator
+      shell: kubectl apply -f /home/{{ ansible_user }}/manifests/rook/operator.yaml
+    - name: Create Rook Ceph Cluster
+      shell: kubectl apply -f /home/{{ ansible_user }}/manifests/rook/cluster.yaml
 
 
 
@@ -143,45 +195,6 @@
 
 
 
-
-
-# - name: Pause
-#   hosts: 127.0.0.1
-#   connection: local
-#   gather_facts: false
-#   tasks:
-#     - name: Wait 5 min for servers to be ready...
-#       pause:
-#         minutes: 5
-
-# - name: Finish setting up all other nodes
-#   hosts: 127.0.0.1
-#   connection: local
-#   ignore_errors: true
-#   tasks:
-#     - name: Initialize worker nodes (Local)
-#       with_items: "{{ groups['nodes_local'] }}"
-#       shell: k3sup join \
-#         --ip {{ hostvars[item]['inventory_hostname'] }} \
-#         --user {{ hostvars[item]['ansible_user'] }} \
-#         --server-user {{ hostvars[groups['master_local'][0]]['ansible_user'] }} \
-#         --server-ip {{ public_facing_ip }} {% if hostvars[item]['ansible_ssh_private_key_file'] is defined %}--ssh-key {{ hostvars[item]['ansible_ssh_private_key_file'] }}{% endif %}
-#     - name: Initialize worker nodes (AWS)
-#       with_items: "{{ groups['nodes_aws'] }}"
-#       shell: k3sup join \
-#         --ip {{ hostvars[item]['inventory_hostname'] }} \
-#         --user {{ hostvars[item]['ansible_user'] }} \
-#         --k3s-extra-args '--node-external-ip={{ hostvars[item]['inventory_hostname'] }}'
-#         --server-user {{ hostvars[groups['master_aws'][0]]['ansible_user'] }} \
-#         --server-ip {{ hostvars[groups['master_aws'][0]]['inventory_hostname'] }} {% if hostvars[item]['ansible_ssh_private_key_file'] is defined %}--ssh-key {{ hostvars[item]['ansible_ssh_private_key_file'] }}{% endif %}
-#     - name: Initialize worker nodes (DO)
-#       with_items: "{{ groups['nodes_do'] }}"
-#       shell: k3sup join \
-#         --ip {{ hostvars[item]['inventory_hostname'] }} \
-#         --user {{ hostvars[item]['ansible_user'] }} \
-#         --k3s-extra-args '--node-external-ip={{ hostvars[item]['inventory_hostname'] }}'
-#         --server-user {{ hostvars[groups['master_do'][0]]['ansible_user'] }} \
-#         --server-ip {{ hostvars[groups['master_do'][0]]['inventory_hostname'] }} {% if hostvars[item]['ansible_ssh_private_key_file'] is defined %}--ssh-key {{ hostvars[item]['ansible_ssh_private_key_file'] }}{% endif %}
 
 # - name: Gluster Port Setup - Local
 #   hosts: local

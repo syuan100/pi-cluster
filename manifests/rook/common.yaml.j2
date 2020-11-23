@@ -77,7 +77,7 @@ spec:
                 allowMultiplePerNode:
                   type: boolean
                 count:
-                  maximum: 9
+                  maximum: {{ (groups["all"] | length) }}
                   minimum: 0
                   type: integer
                 volumeClaimTemplate: {}
@@ -648,7 +648,7 @@ spec:
                 size:
                   type: integer
                   minimum: 0
-                  maximum: 9
+                  maximum: {{ (groups["all"] | length) }}
                 targetSizeRatio:
                   type: number
                 requireSafeReplicaSize:
@@ -658,11 +658,11 @@ spec:
                 dataChunks:
                   type: integer
                   minimum: 0
-                  maximum: 9
+                  maximum: {{ (groups["all"] | length) }}
                 codingChunks:
                   type: integer
                   minimum: 0
-                  maximum: 9
+                  maximum: {{ (groups["all"] | length) }}
             compressionMode:
               type: string
               enum:

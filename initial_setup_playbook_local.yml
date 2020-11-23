@@ -1,0 +1,223 @@
+# - name: Disable updates temporarily
+#   hosts: local
+#   become: yes
+#   any_errors_fatal: true
+#   tasks:
+#     - shell: systemctl disable apt-daily.service && \
+#              systemctl disable apt-daily.timer && \
+#              systemctl disable apt-daily-upgrade.timer && \
+#              systemctl disable apt-daily-upgrade.service
+
+# - name: Host setup
+#   hosts: local
+#   become: yes
+#   gather_facts: yes
+#   any_errors_fatal: true
+#   roles:
+#     - role: ubuntu
+
+# - name: Setup K3s...
+#   hosts: local
+#   any_errors_fatal: true
+#   gather_facts: yes
+#   become: yes
+#   roles:
+#     - role: kubernetes/prereq
+#     - role: kubernetes/download
+#     - role: kubernetes/raspbian
+#     - role: kubernetes/ubuntu
+
+# - name: Setup k3sup...
+#   hosts: 127.0.0.1
+#   connection: local
+#   any_errors_fatal: true
+#   become: yes
+#   tasks:
+#     - name: Install k3sup
+#       shell: curl -sLS https://get.k3sup.dev | sh
+
+# - name: Initial k3sup cluster setup
+#   hosts: 127.0.0.1
+#   connection: local
+#   ignore_errors: true
+#   tasks:
+#     - name: Download k3sup
+#       shell: curl -sLS https://get.k3sup.dev | sh
+#     - name: Install k3s
+#       with_items: "{{ groups['master_local_main'] }}"
+#       shell: k3sup install \
+#         --user {{ hostvars[item]['ansible_user'] }} \
+#         --k3s-extra-args '{{ extra_k3s_server_args }}' \
+#         --ip {{  hostvars[item]['inventory_hostname'] }} \
+#         --k3s-version {{ k3s_version }} {% if hostvars[item]['ansible_ssh_private_key_file'] is defined %}--ssh-key {{ hostvars[item]['ansible_ssh_private_key_file'] }}{% endif %}
+#     # - name: Initialize HA servers
+#     #   with_items: "{{ groups['master_local_others'] }}"
+#     #   shell: k3sup join --server \
+#     #     --ip {{ hostvars[item]['inventory_hostname'] }} \
+#     #     --user {{ hostvars[item]['ansible_user'] }} \
+#     #     --k3s-extra-args '{{ extra_k3s_server_args }}' \
+#     #     --server-user {{ hostvars[groups['master_local'][0]]['ansible_user'] }} \
+# #     #     --server-ip {{ item }}
+
+# - name: Finish setting up all other nodes
+#   hosts: 127.0.0.1
+#   connection: local
+#   ignore_errors: true
+#   tasks:
+#     - name: Initialize worker nodes (Local)
+#       with_items: "{{ groups['nodes_local'] }}"
+#       shell: k3sup join \
+#         --ip {{ hostvars[item]['inventory_hostname'] }} \
+#         --user {{ hostvars[item]['ansible_user'] }} \
+#         --k3s-extra-args '{{ extra_k3s_agent_args }}' \
+#         --server-ip {{ hostvars[groups['master_local'][0]]['inventory_hostname'] }} \
+#         --k3s-version {{ k3s_version }} {% if hostvars[item]['ansible_ssh_private_key_file'] is defined %}--ssh-key {{ hostvars[item]['ansible_ssh_private_key_file'] }}{% endif %}
+
+# - name: Prep storage for glusterfs...
+#   hosts: gluster_servers
+#   become: yes
+#   any_errors_fatal: true
+#   tasks:
+#     - name: Try formatting
+#       block:
+#         - name: Format storage
+#           filesystem:
+#             fstype: xfs
+#             force: yes
+#             dev: '{{ storage_path }}'
+#       rescue:
+#         - name: Remove volume from system manually
+#           shell: lvremove -y vg && vgremove vg
+#         - name: Format storage
+#           filesystem:
+#             fstype: xfs
+#             force: yes
+#             dev: '{{ storage_path }}'
+
+# - name: Setting up glusterfs bricks...
+#   any_errors_fatal: true
+#   become: yes
+#   hosts: all
+#   gather_facts: false
+#   vars:
+#     # Set a disk type, Options: JBOD, RAID6, RAID10
+#     gluster_infra_disktype: JBOD
+
+#     # Stripe unit size always in KiB
+#     gluster_infra_stripe_unit_size: 128
+
+#     # enable lvm auto-extend feature so that when the pool is at 70% it will be extended with 15%
+#     gluster_infra_lvm: {
+#     autoexpand_threshold: 70,
+#     autoexpand_percentage: 15,
+#     }
+  
+#     # enable fstrim service so the TRIM command is executed once in a while to clean either ssd or thin/vdo volumes
+#     fstrim_service: {
+#       enabled: yes,
+#       schedule: {         
+#         hour: "{{ range(1, 4) | random() }}"
+#       }
+#     }
+
+#     # Variables for creating volume group
+#     gluster_infra_volume_groups:
+#       - { vgname: 'vg', pvname: '{{ storage_path }}' }
+
+#     # Create thinpools
+#     gluster_infra_thinpools:
+#       - {vgname: 'vg', thinpoolname: 'pi_thinpool', thinpoolsize: '{{ storage_size }}G', poolmetadatasize: '100M'}
+
+#     # Create a thin volume
+#     gluster_infra_lv_logicalvols:
+#       - { vgname: 'vg', thinpool: 'pi_thinpool', lvname: 'vg_pi_thinpool', lvsize: '{{ (local_storage_size * ( groups["local"] | length )) }}G'}
+
+#     # Mount the devices 
+#     gluster_infra_mount_devices:
+#       - { path: '/mnt/brick1', vgname: 'vg', lvname: 'vg_pi_thinpool' }
+
+#   roles:
+#     - '../gluster_infra/roles/backend_setup'
+
+# - name: Create glusterfs cluster...
+#   ignore_errors: true
+#   hosts: gluster_servers
+#   become: yes
+#   gather_facts: true
+
+#   vars:
+#     # gluster volume
+#     gluster_cluster_hosts: "{{ groups['gluster_servers'] }}"
+#     gluster_cluster_volume: piclustervol
+#     gluster_cluster_transport: 'tcp'
+#     gluster_cluster_bricks: '/mnt/brick1'
+
+#     # match number of replicas to total number of gluster_servers
+#     gluster_cluster_replica_count: '{{ groups["gluster_servers"] | length }}'
+
+#     # variables to set specific volume options
+#     gluster_cluster_options: {'performance.cache-size':'64MB'}
+#   roles:
+#     - '../gluster_cluster/roles/gluster_volume'
+#   tasks:
+#     - name: Ensure GlusterFS server is installed on all hosts
+#       apt:
+#         name: glusterfs-server
+#     - name: Mount gluster volume locally for all hosts
+#       mount:
+#         path: /mnt/picluster
+#         src: localhost:/piclustervol
+#         fstype: glusterfs
+#         opts: defaults,_netdev
+#         state: mounted
+
+- name: Copy service configurations & deploy
+  hosts: master
+  any_errors_fatal: true
+  become: true
+  roles:
+    # - role: services/metallb
+    # - { role: services/glusterfs, when: storage_solution == "glusterfs" }
+    # - { role: services/nethermind, when: external_eth1 != true or deploy_nethermind == true }
+    - { role: services/geth, when: external_eth1 != true or standalone_geth == true }
+    # - { role: services/lighthouse-beacon, when: deploy_lighthouse_beacon == true }
+    # - { role: services/lighthouse-validator, when: deploy_lighthouse_validator == true }
+    # - { role: services/teku, when: deploy_teku_beacon_w_validator == true }
+    # - { role: services/nimbus, when: deploy_nimbus == true }
+    # - { role: services/prysm-beacon, when: deploy_prysm_beacon == true }
+    # - { role: services/prysm-validator, when: deploy_prysm_validator == true }
+             
+# - name: Install Prometheus and Grafana
+#   hosts: master 
+#   become: yes
+#   roles:
+#     - role: kubernetes/monitoring
+  # tasks:
+    # - name: Copy grafana service patch
+    #   copy:
+    #     src: ./manifests/patch-monitoring-grafana.yaml
+    #     dest: /home/ubuntu/patch-monitoring-grafana.yaml
+    # - name: Copy alertmanager service patch
+    #   copy:
+    #     src: ./manifests/patch-monitoring-alertmanager.yaml
+    #     dest: /home/ubuntu/patch-monitoring-alertmanager.yaml
+    # - name: Copy prometheus service patch
+    #   copy:
+    #     src: ./manifests/patch-monitoring-prometheus.yaml
+    #     dest: /home/ubuntu/patch-monitoring-prometheus.yaml
+    # - name: Patch Grafana service
+    #   shell: kubectl patch svc grafana -n monitoring --type merge --patch "$(cat /home/ubuntu/patch-monitoring-grafana.yaml)"
+    # - name: Patch Alertmanager service
+    #   shell: kubectl patch svc alertmanager-main -n monitoring --type merge --patch "$(cat /home/ubuntu/patch-monitoring-alertmanager.yaml)"
+    # - name: Patch Grafana service
+    #   shell: kubectl patch svc prometheus-k8s -n monitoring --type merge --patch "$(cat /home/ubuntu/patch-monitoring-prometheus.yaml)"
+
+# - name: Re-enable updates
+#   hosts: k3s_cluster
+#   become: yes
+#   any_errors_fatal: true
+#   tasks:
+#     - shell: systemctl enable apt-daily.service && \
+#              systemctl enable apt-daily.timer && \
+#              systemctl enable apt-daily-upgrade.timer && \
+#              systemctl enable apt-daily-upgrade.service

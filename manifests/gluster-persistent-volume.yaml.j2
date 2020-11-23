@@ -5,11 +5,11 @@ metadata:
 spec:
   storageClassName: local-storage
   capacity:
-    storage: {{ storage_size }}Gi
+    storage: {{ local_storage_size }}Gi
   accessModes:
     - ReadWriteMany
   hostPath:
-    path: /mnt/eth2
+    path: /mnt/picluster
   persistentVolumeReclaimPolicy: Retain
 ---
 apiVersion: v1
@@ -22,4 +22,4 @@ spec:
     - ReadWriteMany
   resources:
     requests:
-      storage: {{ storage_size }}Gi
+      storage: {{ local_storage_size }}Gi

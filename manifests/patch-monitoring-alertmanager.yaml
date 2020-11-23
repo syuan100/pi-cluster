@@ -1,0 +1,7 @@
+spec:
+  type: LoadBalancer
+  ports:
+  - name: web
+    port: 9093
+    targetPort: web
+    nodePort: 31001

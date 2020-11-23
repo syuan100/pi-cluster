@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: besu
+spec:
+  type: LoadBalancer
+  selector:
+    app: besu
+  ports:
+  - name: geth-tcp
+    port: {{ besu_port }}
+    targetPort: {{ besu_port_target }}
+    nodePort: 30011
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: besu-udp
+spec:
+  type: LoadBalancer
+  selector:
+    app: besu
+  ports:
+  - name: besu-udp
+    protocol: UDP
+    port: {{ besu_port }}
+    targetPort: {{ besu_port_target }}
+    nodePort: 30012
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: besu
+  labels:
+    app: besu
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: besu
+  template:
+    metadata:
+      labels:
+        app: besu
+    spec:
+      volumes:
+        - name: eth2pv
+          persistentVolumeClaim:
+            claimName: eth2claim
+      containers:
+        - name: besu
+          image: {{ besu_image_tag }}
+          imagePullPolicy: "Always"
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+          ports:
+            - containerPort: {{ besu_json_rpc_port }}
+            - containerPort: {{ besu_port }}
+            - containerPort: {{ besu_port }}
+              protocol: UDP            
+          command: ["./besu.Runner"]
+          args: ["--config", "mainnet", "--baseDbPath", "/root/besu_db"]
+          volumeMounts:
+            - mountPath: "/root"
+              name: eth2pv
+      tolerations:
+        - key: node.kubernetes.io/not-ready
+          effect: NoExecute
+          tolerationSeconds: 20
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 20

@@ -1,0 +1,22 @@
+- name: Copy lighthouse keys
+  copy:
+    src: ../../../../eth2_launchpad_files/lighthouse/validator_keys
+    dest: /mnt/picluster/.lighthouse
+
+- name: Copy lighthouse validator service config
+  template:
+    src: ../../../../manifests/lighthouse-validator-service.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/lighthouse-validator-service.yaml
+    owner: root
+    group: root
+    mode: preserve
+  register: result
+
+- name: Apply new service config if changed
+  shell: kubectl apply -f /var/lib/rancher/k3s/server/manifests/lighthouse-validator-service.yaml
+  when: result.changed == true
+
+- name: Restart if service changed
+  shell: kubectl rollout restart deployment/lighthouse-validator
+  when: result.changed == true
+  ignore_errors: true

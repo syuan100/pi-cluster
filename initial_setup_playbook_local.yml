@@ -95,7 +95,7 @@
 #             dev: '{{ storage_path }}'
 
 # - name: Setting up glusterfs bricks...
-#   any_errors_fatal: true
+#   ignore_errors: true
 #   become: yes
 #   hosts: all
 #   gather_facts: false
@@ -145,72 +145,97 @@
 #   become: yes
 #   gather_facts: true
 
-#   vars:
-#     # gluster volume
-#     gluster_cluster_hosts: "{{ groups['gluster_servers'] }}"
-#     gluster_cluster_volume: piclustervol
-#     gluster_cluster_transport: 'tcp'
-#     gluster_cluster_bricks: '/mnt/brick1'
+  # vars:
+  #   # gluster volume
+  #   gluster_cluster_hosts: "{{ groups['gluster_servers'] }}"
+  #   gluster_cluster_volume: piclustervol
+  #   gluster_cluster_transport: 'tcp'
+  #   gluster_cluster_bricks: '/mnt/brick1'
 
-#     # match number of replicas to total number of gluster_servers
-#     gluster_cluster_replica_count: '{{ groups["gluster_servers"] | length }}'
+  #   # match number of replicas to total number of gluster_servers
+  #   gluster_cluster_replica_count: '{{ groups["gluster_servers"] | length }}'
 
-#     # variables to set specific volume options
-#     gluster_cluster_options: {'performance.cache-size':'64MB'}
+  #   # variables to set specific volume options
+  #   gluster_cluster_options: {'performance.cache-size':'2048MB'}
+  # roles:
+  #   - '../gluster_cluster/roles/gluster_volume'
+  # tasks:
+    # - name: Ensure GlusterFS server is installed on all hosts
+    #   apt:
+    #     name: glusterfs-server
+    # - name: Make dir
+    #   file:
+    #     path: "/etc/systemd/system/srv.mount.d"
+    #     state: directory
+    # - name: Add systemd service config to allow reboot mounting to properly occur
+    #   copy:
+    #     dest: "/etc/systemd/system/srv.mount.d/override.conf"
+    #     content: |
+    #       [Unit]
+    #       After=glusterfs-server.service
+    #       Wants=glusterfs-server.service
+    # - name: Mount gluster volume locally for all hosts
+    #   mount:
+    #     path: /mnt/picluster
+    #     src: localhost:/piclustervol
+    #     fstype: glusterfs
+    #     opts: defaults,_netdev
+    #     state: mounted
+
+# - name: Deploy MetalLB and GlusterFS
+#   hosts: master
+#   any_errors_fatal: true
+#   become: true
 #   roles:
-#     - '../gluster_cluster/roles/gluster_volume'
-#   tasks:
-#     - name: Ensure GlusterFS server is installed on all hosts
-#       apt:
-#         name: glusterfs-server
-#     - name: Mount gluster volume locally for all hosts
-#       mount:
-#         path: /mnt/picluster
-#         src: localhost:/piclustervol
-#         fstype: glusterfs
-#         opts: defaults,_netdev
-#         state: mounted
-
-- name: Copy service configurations & deploy
-  hosts: master
-  any_errors_fatal: true
-  become: true
-  roles:
-    # - role: services/metallb
-    # - { role: services/glusterfs, when: storage_solution == "glusterfs" }
-    # - { role: services/nethermind, when: external_eth1 != true or deploy_nethermind == true }
-    - { role: services/geth, when: external_eth1 != true or standalone_geth == true }
-    # - { role: services/lighthouse-beacon, when: deploy_lighthouse_beacon == true }
-    # - { role: services/lighthouse-validator, when: deploy_lighthouse_validator == true }
-    # - { role: services/teku, when: deploy_teku_beacon_w_validator == true }
-    # - { role: services/nimbus, when: deploy_nimbus == true }
-    # - { role: services/prysm-beacon, when: deploy_prysm_beacon == true }
-    # - { role: services/prysm-validator, when: deploy_prysm_validator == true }
+#     - role: services/metallb
+#     - { role: services/glusterfs, when: storage_solution == "glusterfs" }
              
-# - name: Install Prometheus and Grafana
+# - name: Install Prometheus, Grafana, and Loki
 #   hosts: master 
 #   become: yes
 #   roles:
 #     - role: kubernetes/monitoring
-  # tasks:
-    # - name: Copy grafana service patch
-    #   copy:
-    #     src: ./manifests/patch-monitoring-grafana.yaml
-    #     dest: /home/ubuntu/patch-monitoring-grafana.yaml
-    # - name: Copy alertmanager service patch
-    #   copy:
-    #     src: ./manifests/patch-monitoring-alertmanager.yaml
-    #     dest: /home/ubuntu/patch-monitoring-alertmanager.yaml
-    # - name: Copy prometheus service patch
-    #   copy:
-    #     src: ./manifests/patch-monitoring-prometheus.yaml
-    #     dest: /home/ubuntu/patch-monitoring-prometheus.yaml
-    # - name: Patch Grafana service
-    #   shell: kubectl patch svc grafana -n monitoring --type merge --patch "$(cat /home/ubuntu/patch-monitoring-grafana.yaml)"
-    # - name: Patch Alertmanager service
-    #   shell: kubectl patch svc alertmanager-main -n monitoring --type merge --patch "$(cat /home/ubuntu/patch-monitoring-alertmanager.yaml)"
-    # - name: Patch Grafana service
-    #   shell: kubectl patch svc prometheus-k8s -n monitoring --type merge --patch "$(cat /home/ubuntu/patch-monitoring-prometheus.yaml)"
+#   tasks:
+#     - name: Copy grafana service patch
+#       copy:
+#         src: ./manifests/patch-monitoring-grafana.yaml
+#         dest: /home/ubuntu/patch-monitoring-grafana.yaml
+#     - name: Copy alertmanager service patch
+#       copy:
+#         src: ./manifests/patch-monitoring-alertmanager.yaml
+#         dest: /home/ubuntu/patch-monitoring-alertmanager.yaml
+#     - name: Copy prometheus service patch
+#       copy:
+#         src: ./manifests/patch-monitoring-prometheus.yaml
+#         dest: /home/ubuntu/patch-monitoring-prometheus.yaml
+#     - name: Patch Grafana service
+#       shell: kubectl patch svc grafana -n monitoring --type merge --patch "$(cat /home/ubuntu/patch-monitoring-grafana.yaml)"
+#     - name: Patch Alertmanager service
+#       shell: kubectl patch svc alertmanager-main -n monitoring --type merge --patch "$(cat /home/ubuntu/patch-monitoring-alertmanager.yaml)"
+#     - name: Patch Grafana service
+#       shell: kubectl patch svc prometheus-k8s -n monitoring --type merge --patch "$(cat /home/ubuntu/patch-monitoring-prometheus.yaml)"
+#     - name: Download and install helm
+#       shell: curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+#     - name: Get and update helm chart for loki
+#       shell: helm repo add loki https://grafana.github.io/loki/charts && helm repo update
+#     - name: Deploy Loki to cluster
+#       shell: helm upgrade --install loki loki/loki-stack  --set grafana.enabled=false,prometheus.enabled=false,prometheus.alertmanager.persistentVolume.enabled=false,prometheus.server.persistentVolume.enabled=false,loki.persistence.enabled=false --kubeconfig /etc/rancher/k3s/k3s.yaml
+
+- name: Install eth services
+  hosts: master 
+  become: yes
+  roles:
+    - { role: services/geth, when: external_eth1 != true or standalone_geth == true }
+    # - { role: services/nethermind, when: external_eth1 != true or deploy_nethermind == true }
+    - { role: services/lighthouse-beacon, when: deploy_lighthouse_beacon == true }
+    - { role: services/lighthouse-validator, when: deploy_lighthouse_validator == true }
+    # - { role: services/teku, when: deploy_teku_beacon_w_validator == true }
+    # - { role: services/nimbus, when: deploy_nimbus == true }
+    # - { role: services/prysm-beacon, when: deploy_prysm_beacon == true }
+    # - { role: services/prysm-validator, when: deploy_prysm_validator == true }
+
+
+# # - name: Get helm
 
 # - name: Re-enable updates
 #   hosts: k3s_cluster

@@ -2,6 +2,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: lighthouse-beacon
+  labels:
+    k8s-app: lighthouse-beacon
 spec:
   type: LoadBalancer
   selector:
@@ -15,6 +17,10 @@ spec:
     port: {{ lighthouse_beacon_wss_port }}
     targetPort: {{ lighthouse_beacon_wss_port_target }}
     nodePort: 30023
+  - name: lighthouse-metrics-port
+    port: {{ lighthouse_metrics_port }}
+    targetPort: {{lighthouse_metrics_port }}
+    nodePort: 30025
   - name: lighthouse-beacon-port
     port: {{ lighthouse_beacon_port }}
     targetPort: {{ lighthouse_beacon_port_target }}
@@ -36,6 +42,27 @@ spec:
     port: {{ lighthouse_beacon_port }}
     targetPort: {{ lighthouse_beacon_port_target }}
     nodePort: 30024
+
+---
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: lighthouse-beacon-metrics
+  namespace: monitoring
+  labels:
+    k8s-app: lighthouse-beacon
+spec:
+  selector:
+    matchLabels:
+      k8s-app: lighthouse-beacon
+  namespaceSelector:
+    matchNames:
+    - default
+  endpoints:
+  - targetPort: 5054
+    path: "/metrics"
+    interval: 15s
 
 ---
 
@@ -72,23 +99,13 @@ spec:
           ports:
             - containerPort: {{ lighthouse_beacon_api_port }}
             - containerPort: {{ lighthouse_beacon_wss_port }}
+            - containerPort: {{ lighthouse_metrics_port }}
             - containerPort: {{ lighthouse_beacon_port }}
             - containerPort: {{ lighthouse_beacon_port }}
               protocol: UDP
           command: ["lighthouse"]
-          args: ["beacon", "--http", "--http-address", "0.0.0.0", "--http-allow-origin", "\"*\"", "--network-dir", "/root/.lighthouse/network", "--ws", "--ws-address", "0.0.0.0", "--eth1", "--eth1-endpoint", "{{ eth1_endpoint }}"{% if poap_lighthouse is defined %}, "--graffiti={{ poap_lighthouse }}"{% endif %}  ]
+          args: ["bn", "--staking", "--metrics", "--metrics-address", "0.0.0.0", "--metrics-allow-origin=*", "--http", "--http-address", "0.0.0.0", "--http-allow-origin=*", "--network-dir", "/root/.lighthouse/network", "--ws", "--ws-address", "0.0.0.0", "--eth1", "--eth1-endpoint", "{{ eth1_endpoint }}"{% if poap_lighthouse is defined %}, "--graffiti={{ poap_lighthouse }}"{% endif %}  ]
           volumeMounts:	
             - mountPath: "/root"	
               name: eth2pv
-          lifecycle:
-            preStop:
-              exec: 
-                command: [ "/bin/sh","-c","rm /root/.lighthouse/beacon/chain_db/LOCK && rm /root/.lighthouse/beacon/freezer_db/LOCK" 
-      tolerations:
-        - key: node.kubernetes.io/not-ready
-          effect: NoExecute
-          tolerationSeconds: 20
-        - key: node.kubernetes.io/unreachable
-          operator: Exists
-          effect: NoExecute
-          tolerationSeconds: 20
+              

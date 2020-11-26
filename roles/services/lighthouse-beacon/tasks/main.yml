@@ -1,0 +1,17 @@
+- name: Copy lighthouse beacon service config
+  template:
+    src: ../../../../manifests/lighthouse-beacon-service.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/lighthouse-beacon-service.yaml
+    owner: root
+    group: root
+    mode: preserve
+  register: result
+
+- name: Apply new service config if changed
+  shell: kubectl apply -f /var/lib/rancher/k3s/server/manifests/lighthouse-beacon-service.yaml
+  when: result.changed == true
+
+- name: Restart if service changed
+  shell: kubectl rollout restart deployment/lighthouse-beacon
+  when: result.changed == true
+  ignore_errors: true

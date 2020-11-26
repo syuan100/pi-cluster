@@ -1,0 +1,15 @@
+- name: Updating Gluster to version 8
+  hosts: local
+  become: yes
+  any_errors_fatal: true
+  tasks:
+    - name: Stop all Gluster processes
+      shell: systemctl stop glusterd && systemctl stop glustereventsd && killall glusterfs glusterfsd glusterd
+    - name: Add repo
+      shell: add-apt-repository --yes ppa:gluster/glusterfs-8 && apt update
+    - name: Install version 8
+      shell: apt install -y glusterfs-server
+    - name: Start glusterd
+      shell: systemctl start glusterd
+    - name: Heal volumes
+      shell: for i in `gluster volume list`; do gluster volume heal $i; done

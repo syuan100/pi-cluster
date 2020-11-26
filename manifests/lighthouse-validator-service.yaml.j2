@@ -28,16 +28,8 @@ spec:
           securityContext:
             runAsUser: 0
             allowPrivilegeEscalation: false
-          command: ["/bin/bash", "-c", "yes '{{ lighthouse_keystore_password }}' | lighthouse account validator import --directory /root/.lighthouse/validator_keys --stdin-passwords && lighthouse validator --auto-register --server {{ lighthouse_beacon_endpoint }}"]
+          command: ["/bin/bash", "-c", "yes '{{ lighthouse_keystore_password }}' | lighthouse account validator import --directory /root/.lighthouse/validator_keys --stdin-inputs && lighthouse vc --beacon-node {{ lighthouse_beacon_endpoint }}"]
           volumeMounts:
             - mountPath: "/root"
               name: eth2pv
-      tolerations:
-        - key: node.kubernetes.io/not-ready
-          effect: NoExecute
-          tolerationSeconds: 20
-        - key: node.kubernetes.io/unreachable
-          operator: Exists
-          effect: NoExecute
-          tolerationSeconds: 20
-        
+              
